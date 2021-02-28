@@ -55,7 +55,8 @@ Heroku: https://afternoon-river-16729.herokuapp.com/
          - POST: добавление нового комментария под постом (доступно для зарегистрированных и авотризованных поьзователей)
 
            формат:
-              {
+              {  
+                 "post_id": "1",
                  "title": "title",
                  "content": "content"
               }
