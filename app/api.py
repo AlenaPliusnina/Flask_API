@@ -1,6 +1,7 @@
+import json
 from datetime import datetime
 
-from flask import request
+from flask import request, make_response
 from flask_restful import Resource, Api
 from flask import g
 
@@ -33,8 +34,10 @@ class UserListResource(Resource):
             users = User.query.all()
             return users_schema.dump(users)
         else:
-            return {'error': 'HTTP 403: Forbidden',
-                    'message': 'Only the superuser can access.'}, 403
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'Only the superuser can access.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
     def post(self):
         body = request.get_json()
@@ -46,43 +49,47 @@ class UserListResource(Resource):
             try:
                 user.hash_password()
                 user.save()
-                return {'message': 'You registered successfully. Please log in.'}, 201
+                data = {'message': 'You registered successfully. Please log in.'}
+                resp = make_response(json.dumps(data), 201)
+                return resp
 
             except Exception as e:
                 return {'message': str(e)}, 401
 
         else:
-            return {'message': 'User already exists. Please login.'}, 202
+            data = {'message': 'User already exists. Please login.'}
+            resp = make_response(json.dumps(data), 202)
+            return resp
 
 
 class UserResource(Resource):
     @auth.login_required
     def get(self, user_id):
         if g.user.username == 'admin' or g.user.id == user_id:
-            try:
-                user = User.query.get_or_404(user_id)
-                return user_schema.dump(user)
-            except Exception as e:
-                return {'message': str(e)}, 404
+            user = User.query.get_or_404(user_id)
+            return user_schema.dump(user)
         else:
-            return {'error': 'HTTP 403: Forbidden',
-                    'message': 'You can only access your registration information.'}, 403
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'You can only access your registration information.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
     @auth.login_required
     def delete(self, user_id):
-        try:
-            user = User.query.get_or_404(user_id)
 
-            if user.id == g.user.id or g.user.username == 'admin':
-                db.session.delete(user)
-                db.session.commit()
-                return {'message': 'The user was successfully deleted.'}, 200
-            else:
-                return {'error': 'HTTP 403: Forbidden',
-                        'message': 'You can only delete your account.'}, 403
+        user = User.query.get_or_404(user_id)
 
-        except Exception as e:
-            return {'message': str(e)}, 404
+        if user.id == g.user.id or g.user.username == 'admin':
+            db.session.delete(user)
+            db.session.commit()
+            data = {'message': 'The user was successfully deleted.'}
+            resp = make_response(json.dumps(data), 200)
+            return resp
+        else:
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'You can only delete your account.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
 
 class PostListResource(Resource):
@@ -105,47 +112,46 @@ class PostListResource(Resource):
 
 class PostResource(Resource):
     def get(self, post_id):
-        try:
-            post = Post.query.get_or_404(post_id)
-            return post_schema.dump(post)
-        except Exception as e:
-            return {'message': str(e)}, 404
+
+        post = Post.query.get_or_404(post_id)
+        return post_schema.dump(post)
 
     @auth.login_required
     def patch(self, post_id):
-        try:
-            post = Post.query.get_or_404(post_id)
 
-            if post.author_id == g.user.id:
-                if 'title' in request.json:
-                    post.title = request.json['title']
-                if 'content' in request.json:
-                    post.content = request.json['content']
+        post = Post.query.get_or_404(post_id)
 
-                db.session.commit()
-                return post_schema.dump(post)
-            else:
-                return {'error': 'HTTP 403: Forbidden',
-                        'message': 'You can only edit your posts.'}, 403
+        if post.author_id == g.user.id:
+            if 'title' in request.json:
+                post.title = request.json['title']
+            if 'content' in request.json:
+                post.content = request.json['content']
 
-        except Exception as e:
-            return {'message': str(e)}, 404
+            db.session.commit()
+            return post_schema.dump(post)
+        else:
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'You can only edit your posts.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
     @auth.login_required
     def delete(self, post_id):
-        try:
-            post = Post.query.get_or_404(post_id)
 
-            if post.author_id == g.user.id:
-                db.session.delete(post)
-                db.session.commit()
-                return {'message': 'The post was successfully deleted.'}, 200
-            else:
-                return {'error': 'HTTP 403: Forbidden',
-                        'message': 'You can only delete your posts.'}, 403
+        post = Post.query.get_or_404(post_id)
 
-        except Exception as e:
-            return {'message': str(e)}, 404
+        if post.author_id == g.user.id:
+            db.session.delete(post)
+            db.session.commit()
+
+            data = {'message': 'The post was successfully deleted.'}
+            resp = make_response(json.dumps(data), 200)
+            return resp
+        else:
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'You can only delete your posts.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
 
 class CommentListResource(Resource):
@@ -171,53 +177,53 @@ class CommentListResource(Resource):
             return comment_schema.dump(new_comment)
 
         else:
-            return {'error': 'HTTP 404: Not Found',
-                    'message': 'Post with this id was not found.'}, 404
+            data = {'error': 'HTTP 404: Not Found',
+                    'message': 'Post with this id was not found.'}
+            resp = make_response(json.dumps(data), 404)
+            return resp
 
 
 class CommentResource(Resource):
     def get(self, comment_id):
-        try:
-            comment = Comment.query.get_or_404(comment_id)
-            return comment_schema.dump(comment)
-        except Exception as e:
-            return {'message': str(e)}, 404
+
+        comment = Comment.query.get_or_404(comment_id)
+        return comment_schema.dump(comment)
 
     @auth.login_required
     def patch(self, comment_id):
-        try:
-            comment = Comment.query.get_or_404(comment_id)
 
-            if comment.author_id == g.user.id:
-                if 'title' in request.json:
-                    comment.title = request.json['title']
-                if 'content' in request.json:
-                    comment.content = request.json['content']
+        comment = Comment.query.get_or_404(comment_id)
 
-                db.session.commit()
-                return comment_schema.dump(comment)
-            else:
-                return {'error': 'HTTP 403: Forbidden',
-                        'message': 'You can only edit your comments.'}, 403
+        if comment.author_id == g.user.id:
+            if 'title' in request.json:
+                comment.title = request.json['title']
+            if 'content' in request.json:
+                comment.content = request.json['content']
 
-        except Exception as e:
-            return {'message': str(e)}, 404
+            db.session.commit()
+            return comment_schema.dump(comment)
+        else:
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'You can only edit your comments.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
     @auth.login_required
     def delete(self, comment_id):
-        try:
-            comment = Comment.query.get_or_404(comment_id)
 
-            if comment.author_id == g.user.id:
-                db.session.delete(comment)
-                db.session.commit()
-                return {'message': 'The comment was successfully deleted.'}, 200
-            else:
-                return {'error': 'HTTP 403: Forbidden',
-                        'message': 'You can only delete your comments.'}, 403
+        comment = Comment.query.get_or_404(comment_id)
 
-        except Exception as e:
-            return {'message': str(e)}, 404
+        if comment.author_id == g.user.id:
+            db.session.delete(comment)
+            db.session.commit()
+            data = {'message': 'The comment was successfully deleted.'}
+            resp = make_response(json.dumps(data), 200)
+            return resp
+        else:
+            data = {'error': 'HTTP 403: Forbidden',
+                    'message': 'You can only delete your comments.'}
+            resp = make_response(json.dumps(data), 403)
+            return resp
 
 
 api.add_resource(UserListResource, '/users')
